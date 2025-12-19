@@ -1,23 +1,20 @@
 name: Update Cron Schedule
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 仅由主 workflow 触发
 
-# 👇 关键：全局授予权限（推荐）
 permissions:
-  contents: write
-  workflows: write  # ← 必须加这一行！
+  contents: write  # 需要写权限来提交文件
+  workflows: write
 
 jobs:
   update-cron:
     runs-on: ubuntu-latest
-    # 注意：如果在这里用 job 级 permissions，也要包含 workflows
-    # permissions:
-    #   contents: write
-    #   workflows: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate random minute between 0 and 59
         id: random_minute
@@ -29,7 +26,12 @@ jobs:
         run: |
           NEW_CRON="${{ steps.random_minute.outputs.random_minute }} 8 * * *"
           echo "New cron: $NEW_CRON"
+
+          # 使用 sed 替换 cron 行（匹配 schedule 下的 cron）
           sed -i "s/cron: '[0-9*\/, -]*'/cron: '$NEW_CRON'/" .github/workflows/main.yml
+
+          # 验证文件是否被修改
+          cat .github/workflows/main.yml
 
       - name: Commit and push updated main.yml
         run: |
