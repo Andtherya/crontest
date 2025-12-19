@@ -1,25 +1,52 @@
-name: Main Workflow
+name: Update Cron Schedule Randomly
 
 on:
-  # 手动触发
   workflow_dispatch:
-  # Cron触发（初始时间）
   schedule:
-    - cron: '0 8 * * *'  # 默认计划为每天早上8点
+    - cron: '0 8 * * *'  # UTC 8:00
 
 jobs:
-  main:
+  update-cron:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Run your task
-        run: echo "Running the main workflow..."
+      - name: Generate random minute between 10 and 30
+        id: random_minute
+        run: |
+          MINUTE=$((10 + RANDOM % 21))
+          echo "minute=$MINUTE" >> $GITHUB_OUTPUT
+          echo "New cron minute: $MINUTE"
 
-      - name: Trigger secondary workflow to modify cron schedule
-        uses: peter-evans/workflow-dispatch@v1
-        with:
-          repository: ${{ github.repository }}
-          workflow: secondary.yml
-          ref: main
+      - name: Replace line 6 in workflow file
+        env:
+          NEW_MINUTE: ${{ steps.random_minute.outputs.minute }}
+        run: |
+          FILE=".github/workflows/main.yml"  # ← 替换为你的实际文件名！
+
+          if [ ! -f "$FILE" ]; then
+            echo "❌ Error: $FILE not found!"
+            exit 1
+          fi
+
+          # 构造新第6行内容（注意缩进！根据你原文件调整空格）
+          NEW_LINE="    - cron: '$NEW_MINUTE 8 * * *'"
+
+          # 替换第6行
+          sed -i "${6}s/.*/$NEW_LINE/" "$FILE"
+
+          echo "✅ Updated line 6 to:"
+          sed -n '6p' "$FILE"
+
+      - name: Commit and push
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "chore: update cron schedule (line 6) to ${{ steps.random_minute.outputs.minute }} 8 * * *"
+          git push
