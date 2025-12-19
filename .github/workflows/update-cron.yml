@@ -1,11 +1,11 @@
 name: Update Cron Schedule
 
 on:
-  workflow_dispatch:  # 仅由主 workflow 触发
+  workflow_dispatch:
 
+# 注意：这里不需要 workflows 权限（它不存在），但保留 contents: write 无害
 permissions:
-  contents: write  # 需要写权限来提交文件
-  workflows: write
+  contents: write
 
 jobs:
   update-cron:
@@ -14,29 +14,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}  # 👈 关键：用 PAT 拉取（可选，但推荐）
 
-      - name: Generate random minute between 0 and 59
+      - name: Generate random minute
         id: random_minute
         run: |
           MINUTE=$(shuf -i 0-59 -n 1)
           echo "random_minute=$MINUTE" >> $GITHUB_OUTPUT
 
-      - name: Update main.yml cron schedule
+      - name: Update main.yml cron
         run: |
           NEW_CRON="${{ steps.random_minute.outputs.random_minute }} 8 * * *"
-          echo "New cron: $NEW_CRON"
-
-          # 使用 sed 替换 cron 行（匹配 schedule 下的 cron）
           sed -i "s/cron: '[0-9*\/, -]*'/cron: '$NEW_CRON'/" .github/workflows/main.yml
 
-          # 验证文件是否被修改
-          cat .github/workflows/main.yml
-
-      - name: Commit and push updated main.yml
+      - name: Commit and push with PAT
+        env:
+          PAT: ${{ secrets.PAT_TOKEN }}
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git remote set-url origin https://x-access-token:$PAT@github.com/${{ github.repository }}.git
           git add .github/workflows/main.yml
-          git commit -m "chore: update main workflow cron to random time in 8-9 AM"
+          git commit -m "chore: update cron to random time in 8-9 AM"
           git push
