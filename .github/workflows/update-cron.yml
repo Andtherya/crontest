@@ -3,18 +3,12 @@ name: Update Cron Schedule
 on:
   workflow_dispatch:
 
-# 注意：这里不需要 workflows 权限（它不存在），但保留 contents: write 无害
-permissions:
-  contents: write
-
 jobs:
   update-cron:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT_TOKEN }}  # 👈 关键：用 PAT 拉取（可选，但推荐）
 
       - name: Generate random minute
         id: random_minute
@@ -27,13 +21,14 @@ jobs:
           NEW_CRON="${{ steps.random_minute.outputs.random_minute }} 8 * * *"
           sed -i "s/cron: '[0-9*\/, -]*'/cron: '$NEW_CRON'/" .github/workflows/main.yml
 
-      - name: Commit and push with PAT
+      - name: Commit and push using PAT
         env:
-          PAT: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # 👈 关键：通过环境变量传入
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git remote set-url origin https://x-access-token:$PAT@github.com/${{ github.repository }}.git
+          # 使用 gh CLI 或直接配置 HTTPS 凭据
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
           git add .github/workflows/main.yml
           git commit -m "chore: update cron to random time in 8-9 AM"
           git push
