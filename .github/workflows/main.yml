@@ -18,8 +18,8 @@ jobs:
       - name: Generate random minute and compute tomorrow's weekday
         id: cron_info
         run: |
-          # 随机分钟 10-30
-          MINUTE=$((10 + RANDOM % 21))
+          # 随机分钟 10-59
+          MINUTE=$((10 + RANDOM % 50))
           
           # 获取今天是星期几（0=Sun, 1=Mon, ..., 6=Sat）
           TODAY_WEEKDAY=$(date -u +%w)  # UTC 星期
