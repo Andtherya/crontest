@@ -1,0 +1,26 @@
+name: Secondary Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  modify-cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate random time between 08:00 and 09:00
+        id: random_time
+        run: |
+          # 随机生成一个分钟数（0-59）
+          random_minute=$((RANDOM % 60))
+          random_time="0$((8 + RANDOM % 1)):$random_minute"
+          echo "Generated time: $random_time"
+          echo "cron_time=$random_time" >> $GITHUB_ENV
+
+      - name: Modify cron schedule
+        run: |
+          echo "Updating cron schedule with new time"
+          # 使用GitHub API修改workflow的Cron计划（需要替换为实际API调用）
+          curl -X PATCH \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -d '{"schedule": ["'"$random_time"'"]}' \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/main.yml
