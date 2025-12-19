@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   
   schedule:
-    - cron: '24 8 * * *'
+    - cron: '0 8 * * *'  # 每天 UTC 8:00 触发更新
+
 jobs:
   update-cron:
     runs-on: ubuntu-latest
@@ -12,25 +13,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PAT }}  # 必须使用带 workflows 权限的 PAT
+          token: ${{ secrets.PAT }}
 
-      - name: Generate random minute (10–30)
-        id: random_minute
+      - name: Generate random minute and compute tomorrow's weekday
+        id: cron_info
         run: |
+          # 随机分钟 10-30
           MINUTE=$((10 + RANDOM % 21))
+          
+          # 获取今天是星期几（0=Sun, 1=Mon, ..., 6=Sat）
+          TODAY_WEEKDAY=$(date -u +%w)  # UTC 星期
+          
+          # 计算明天的星期（0-6）
+          TOMORROW_WEEKDAY=$(( (TODAY_WEEKDAY + 1) % 7 ))
+          
           echo "minute=$MINUTE" >> $GITHUB_OUTPUT
+          echo "weekday=$TOMORROW_WEEKDAY" >> $GITHUB_OUTPUT
+          
+          echo "Today (UTC): $(date -u)"
+          echo "Today weekday (0=Sun): $TODAY_WEEKDAY"
+          echo "Tomorrow weekday: $TOMORROW_WEEKDAY"
 
-      - name: Replace cron on line 7
+      - name: Replace cron line (line 7)
         env:
-          NEW_MINUTE: ${{ steps.random_minute.outputs.minute }}
+          NEW_MINUTE: ${{ steps.cron_info.outputs.minute }}
+          NEW_WEEKDAY: ${{ steps.cron_info.outputs.weekday }}
         run: |
           FILE=".github/workflows/main.yml"
           if [ ! -f "$FILE" ]; then
             echo "❌ File not found!"
             exit 1
           fi
-          sed -i "7s/.*/    - cron: '$NEW_MINUTE 8 * * *'/" "$FILE"
-          echo "✅ New cron line:"
+
+          # 构造 cron: "MINUTE 8 * * WEEKDAY"
+          NEW_CRON="$NEW_MINUTE 8 * * $NEW_WEEKDAY"
+          sed -i "7s/.*/    - cron: '$NEW_CRON'/" "$FILE"
+          
+          echo "✅ Updated cron line:"
           sed -n '7p' "$FILE"
 
       - name: Commit and push
@@ -39,5 +58,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git diff --staged --quiet && exit 0
-          git commit -m "chore: update cron to ${{ steps.random_minute.outputs.minute }} 8 * * *"
+          git commit -m "chore: update cron to ${{ steps.cron_info.outputs.minute }} 8 * * ${{ steps.cron_info.outputs.weekday }}"
           git push
