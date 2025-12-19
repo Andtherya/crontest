@@ -1,34 +1,57 @@
-name: Update Cron Schedule
+name: Update Cron Schedule Randomly
 
 on:
+  # 手动触发
   workflow_dispatch:
+
+  # 定时触发：每天 UTC 时间 8:00
+  schedule:
+    - cron: '0 8 * * *'  # UTC 8:00
 
 jobs:
   update-cron:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    permissions:
+      contents: write  # 允许推送代码
 
-      - name: Generate random minute
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH TOKEN }}  # 使用 PAT 以允许推送
+
+      - name: Generate random minute between 10 and 30
         id: random_minute
         run: |
-          MINUTE=$(shuf -i 0-59 -n 1)
-          echo "random_minute=$MINUTE" >> $GITHUB_OUTPUT
+          MINUTE=$((10 + RANDOM % 21))
+          echo "minute=$MINUTE" >> $GITHUB_OUTPUT
 
-      - name: Update main.yml cron
-        run: |
-          NEW_CRON="${{ steps.random_minute.outputs.random_minute }} 8 * * *"
-          sed -i "s/cron: '[0-9*\/, -]*'/cron: '$NEW_CRON'/" .github/workflows/main.yml
-
-      - name: Commit and push using PAT
+      - name: Update cron in workflow file
         env:
-          GH_TOKEN: ${{ secrets.PAT_TOKEN }}  # 👈 关键：通过环境变量传入
+          NEW_MINUTE: ${{ steps.random_minute.outputs.minute }}
+        run: |
+          FILE=".github/workflows/update-cron.yml"
+          if [ ! -f "$FILE" ]; then
+            echo "Error: $FILE not found!"
+            exit 1
+          fi
+
+          # 构造新的 cron 行：例如 '15 8 * * *'
+          NEW_CRON="$NEW_MINUTE 8 * * *"
+
+          # 使用 sed 替换 schedule 下的 cron 行（仅替换第一个匹配）
+          # 假设原文件中有类似：- cron: '...'
+
+          sed -i "s/- cron: '[0-9* ]*'$/- cron: '$NEW_CRON'/" "$FILE"
+
+          # 可选：打印新内容用于调试
+          cat "$FILE"
+
+      - name: Commit and push changes
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          # 使用 gh CLI 或直接配置 HTTPS 凭据
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git
-          git add .github/workflows/main.yml
-          git commit -m "chore: update cron to random time in 8-9 AM"
+          git add .
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "chore: update cron schedule to ${{ steps.random_minute.outputs.minute }} 8 * * *"
           git push
