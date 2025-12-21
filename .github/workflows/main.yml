@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   
   schedule:
-    - cron: '45 8 * * 0'
+    - cron: '24 8 * * 1'
 
 jobs:
   update-cron:
