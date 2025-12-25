@@ -3,8 +3,8 @@ name: Update Cron in Workflow File
 on:
   workflow_dispatch:
   
-  schedule:
-    - cron: '32 8 * * 4'
+ # schedule:
+  #  - cron: '32 8 * * 4'
 
 jobs:
   update-cron:
